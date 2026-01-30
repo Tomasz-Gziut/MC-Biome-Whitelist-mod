@@ -1,0 +1,32 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="MIT"
+issueTrackerURL=""
+
+[[mixins]]
+config="biomewhitelist.mixins.json"
+
+[[mods]]
+modId="biomewhitelist"
+version="1.0.0"
+displayName="Biome Whitelist"
+description='''
+A mod that allows you to whitelist specific biomes for world generation.
+Only biomes in the whitelist will generate in new chunks.
+'''
+authors="BiomeWhitelist"
+displayURL=""
+
+[[dependencies.biomewhitelist]]
+modId="forge"
+mandatory=true
+versionRange="[47,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.biomewhitelist]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1,1.21)"
+ordering="NONE"
+side="BOTH"

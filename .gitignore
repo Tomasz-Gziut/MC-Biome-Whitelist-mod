@@ -1,0 +1,31 @@
+# Gradle
+.gradle/
+build/
+out/
+*.class
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# Minecraft run
+run/
+logs/
+
+# Generated
+src/generated/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Eclipse
+eclipse/
+
+# Forge
+*.log
