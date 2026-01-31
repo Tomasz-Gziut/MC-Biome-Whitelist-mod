@@ -10,6 +10,7 @@ config="worldmodifier.mixins.json"
 modId="worldmodifier"
 version="1.0.0"
 displayName="World Modifier"
+logoFile="icon.png"
 description='''
 A mod that allows you to modify world generation settings.
 Control which biomes generate, adjust sea level, and customize your world.
@@ -30,3 +31,10 @@ mandatory=true
 versionRange="[1.20.1,1.21)"
 ordering="NONE"
 side="BOTH"
+
+[[dependencies.worldmodifier]]
+modId="cloth_config"
+mandatory=true
+versionRange="[11.0,)"
+ordering="NONE"
+side="CLIENT"

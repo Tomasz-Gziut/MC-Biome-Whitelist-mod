@@ -60,12 +60,17 @@ sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 repositories {
     maven { url = "https://maven.minecraftforge.net/" }
+    maven { url = "https://maven.shedaniel.me/" }
+    maven { url = "https://maven.terraformersmc.com/" }
     mavenCentral()
 }
 
 dependencies {
     minecraft 'net.minecraftforge:forge:1.20.1-47.2.0'
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+
+    // Cloth Config for in-game configuration GUI
+    implementation 'me.shedaniel.cloth:cloth-config-forge:11.1.118'
 }
 
 mixin {

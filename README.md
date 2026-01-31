@@ -1,13 +1,15 @@
 # World Modifier Mod
 
-A Minecraft Forge mod for 1.20.1 that allows you to customize world generation settings. Control which biomes generate, adjust sea level, and create unique world configurations.
+A Minecraft Forge mod for 1.20.1 that allows you to customize world generation settings. Control which biomes generate, adjust sea level, bedrock depth, and build height to create unique world configurations.
 
 ## Features
 
-- **Biome Filtering**: Only allow specific biomes to generate in your world
-- **Smart Replacement**: Non-whitelisted biomes are replaced with biomes from your whitelist, maintaining natural-sized regions
-- **Custom Sea Level**: Adjust the world's sea level to create flooded or drained worlds
-- **Hot Reload**: Configuration changes take effect without restarting the game
+- **Biome Filtering**: Whitelist or blacklist specific biomes
+- **Smart Replacement**: Non-allowed biomes are replaced with a fallback biome, maintaining natural-sized regions
+- **Custom Sea Level**: Adjust the world's sea level (-1999 to 1999)
+- **Custom Bedrock Level**: Control the world's depth (-2000 to 2000)
+- **Custom Max Height**: Adjust the build limit (-2000 to 2000)
+- **Hot Reload**: Configuration changes take effect on newly generated chunks
 - **Mod Support**: Works with modded biomes using their full resource locations
 
 ## Requirements
@@ -29,39 +31,97 @@ After first launch, a configuration file will be created at:
 config/worldmodifier-common.toml
 ```
 
-### Configuration Options
+### Configuration Sections
 
-#### `enabled` (default: `true`)
-Master toggle for the mod. Set to `false` to disable all modifications.
+#### Biome Filtering (`[biomes]`)
 
-#### `whitelistedBiomes` (default: ocean biomes)
-List of biomes that are allowed to generate. Use full resource locations.
+##### `mode` (default: `DISABLED`)
+Controls biome filtering behavior:
+- `DISABLED` - No filtering, all biomes generate normally
+- `WHITELIST` - Only biomes in the list can generate
+- `BLACKLIST` - All biomes except those in the list can generate
 
-**Important**: If this list is empty, all biomes are allowed (whitelist is disabled).
+##### `list` (default: ocean biomes)
+List of biomes for filtering. Use full resource locations like `minecraft:plains`.
 
-When a non-whitelisted biome would generate, it is replaced with a biome from your whitelist. The replacement is consistent based on location, so biome regions maintain natural sizes.
+When a non-allowed biome would generate, it is replaced with the first biome from the list (or `minecraft:plains` if empty).
 
-#### `seaLevel` (default: `100`)
-Custom sea level for world generation. Default Minecraft sea level is 63.
+#### World Generation (`[world]`)
 
-#### `bedrockLevel` (default: `0`)
-Y level where bedrock generates (bottom of the world). Default Minecraft is -64.
+##### `seaLevel` (default: `63`)
+Y coordinate where water surface generates. Vanilla Minecraft default is 63.
+- Range: -1999 to 1999
+- Higher values = more water coverage
+- Lower values = less water coverage
+
+##### `bedrockLevel` (default: `-64`)
+Y level where bedrock generates (bottom of the world). Vanilla Minecraft default is -64.
+- Range: -2000 to 2000
+- Higher values = shallower world
+- Lower values = deeper world
+- Note: Rounded down to nearest multiple of 16
+
+##### `maxHeight` (default: `512`)
+Maximum build height (top of the world). Vanilla Minecraft default is 512.
+- Range: -2000 to 2000
+- Higher values = taller build limit
+- Lower values = lower sky
+- Note: Rounded up to nearest multiple of 16
 
 ## Example Configurations
 
-### Plains-Only World
+### Vanilla World (Default)
 ```toml
-[general]
-enabled = true
-whitelistedBiomes = ["minecraft:plains", "minecraft:river", "minecraft:ocean"]
+[biomes]
+mode = "DISABLED"
+
+[world]
+seaLevel = 63
+bedrockLevel = -64
+maxHeight = 512
+```
+
+### Plains-Only World (Whitelist)
+```toml
+[biomes]
+mode = "WHITELIST"
+list = ["minecraft:plains", "minecraft:river", "minecraft:ocean"]
+
+[world]
 seaLevel = 63
 ```
 
-### Forest Survival
+### No Deserts (Blacklist)
 ```toml
-[general]
-enabled = true
-whitelistedBiomes = [
+[biomes]
+mode = "BLACKLIST"
+list = ["minecraft:desert", "minecraft:badlands", "minecraft:eroded_badlands", "minecraft:wooded_badlands"]
+```
+
+### Flooded World
+```toml
+[biomes]
+mode = "DISABLED"
+
+[world]
+seaLevel = 100
+```
+
+### Deep World
+```toml
+[biomes]
+mode = "DISABLED"
+
+[world]
+bedrockLevel = -256
+maxHeight = 512
+```
+
+### Forest Survival (Whitelist)
+```toml
+[biomes]
+mode = "WHITELIST"
+list = [
     "minecraft:forest",
     "minecraft:birch_forest",
     "minecraft:dark_forest",
@@ -71,24 +131,11 @@ whitelistedBiomes = [
 ]
 ```
 
-### Desert Challenge
+### Winter World (Whitelist)
 ```toml
-[general]
-enabled = true
-whitelistedBiomes = [
-    "minecraft:desert",
-    "minecraft:badlands",
-    "minecraft:eroded_badlands",
-    "minecraft:river",
-    "minecraft:warm_ocean"
-]
-```
-
-### Winter World
-```toml
-[general]
-enabled = true
-whitelistedBiomes = [
+[biomes]
+mode = "WHITELIST"
+list = [
     "minecraft:snowy_plains",
     "minecraft:snowy_taiga",
     "minecraft:snowy_slopes",
@@ -120,24 +167,29 @@ Here's a reference list of common biome IDs:
 
 ## Tips
 
-1. **Always include rivers and oceans** in your whitelist if you want water bodies, otherwise all water areas will be replaced with random biomes from your whitelist.
+1. **Always include rivers and oceans** in your whitelist if you want water bodies, otherwise all water areas will be replaced with the fallback biome.
 
-2. **Test on a new world** - the whitelist only affects newly generated chunks.
+2. **Test on a new world** - changes only affect newly generated chunks.
 
 3. **For modded biomes**, use the format `modid:biome_name` (e.g., `biomesoplenty:redwood_forest`).
 
 4. **Hot reload**: Edit the config file while the game is running, and changes will apply to newly generated chunks.
 
+5. **Blacklist mode** is useful when you want most biomes but want to exclude specific ones (like removing all desert biomes).
+
 ## Troubleshooting
 
 **Q: My world looks completely flat/uniform**
-A: Check that your whitelist contains biomes that actually exist.
+A: Check that your biome list contains biomes that actually exist, and verify the mode is set correctly.
 
 **Q: Changes aren't taking effect**
 A: Changes only affect newly generated chunks. Travel to unexplored areas to see the new configuration.
 
 **Q: The mod isn't working at all**
-A: Make sure `enabled = true` in your config and that your whitelist is not empty.
+A: Make sure `mode` is set to `WHITELIST` or `BLACKLIST` (not `DISABLED`) and that your biome list is not empty.
+
+**Q: Sea level/bedrock changes aren't visible**
+A: World generation settings only affect newly generated chunks. Create a new world to see full effects.
 
 ## Building from Source
 

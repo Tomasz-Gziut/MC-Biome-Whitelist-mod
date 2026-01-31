@@ -40,6 +40,11 @@ public class BedrockMixin {
             return;
         }
 
+        // Skip if using default preset (vanilla behavior)
+        if (!WorldModifierConfig.isWorldModificationActive()) {
+            return;
+        }
+
         int bedrockLevel = WorldModifierConfig.getBedrockLevel();
         int minY = Math.floorDiv(bedrockLevel, 16) * 16; // Round down to 16
         int chunkX = chunk.getPos().getMinBlockX();

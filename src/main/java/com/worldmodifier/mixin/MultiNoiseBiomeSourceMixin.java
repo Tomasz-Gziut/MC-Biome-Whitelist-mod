@@ -18,7 +18,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * Mixin to intercept biome selection in MultiNoiseBiomeSource.
@@ -62,14 +61,13 @@ public class MultiNoiseBiomeSourceMixin {
         }
 
         ResourceLocation biomeId = keyOpt.get().location();
-        Set<ResourceLocation> whitelist = WorldModifierConfig.getWhitelistedBiomes();
 
-        // Check if biome is allowed
-        if (whitelist.contains(biomeId)) {
+        // Check if biome is allowed based on current mode (whitelist/blacklist)
+        if (WorldModifierConfig.isBiomeAllowed(biomeId)) {
             return;
         }
 
-        // Biome not in whitelist - use fallback biome
+        // Biome not allowed - use fallback biome
         Holder<Biome> replacement = worldmodifier$getFallbackBiome();
         if (replacement != null) {
             cir.setReturnValue(replacement);
@@ -82,7 +80,7 @@ public class MultiNoiseBiomeSourceMixin {
      */
     @Unique
     private Holder<Biome> worldmodifier$getFallbackBiome() {
-        ResourceLocation fallbackBiome = WorldModifierConfig.getFirstWhitelistedBiome();
+        ResourceLocation fallbackBiome = WorldModifierConfig.getFallbackBiome();
 
         // Check cache first
         if (worldmodifier$biomeHolderCache.containsKey(fallbackBiome)) {

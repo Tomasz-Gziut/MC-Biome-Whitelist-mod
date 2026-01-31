@@ -1,8 +1,8 @@
 package com.worldmodifier;
 
 import com.mojang.logging.LogUtils;
+import net.minecraftforge.client.ConfigScreenHandler;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
@@ -24,12 +24,20 @@ public class WorldModifier {
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, WorldModifierConfig.SPEC);
         MinecraftForge.EVENT_BUS.register(this);
 
+        // Register config screen (accessible via Mod Menu or Forge's mod list)
+        ModLoadingContext.get().registerExtensionPoint(
+                ConfigScreenHandler.ConfigScreenFactory.class,
+                () -> new ConfigScreenHandler.ConfigScreenFactory(
+                        (mc, parent) -> WorldModifierConfigScreen.create(parent)
+                )
+        );
+
         // Register for config events on the mod event bus
         var modBus = net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext.get().getModEventBus();
         modBus.addListener(this::onConfigLoad);
         modBus.addListener(this::onConfigReload);
 
-        LOGGER.info("[WorldModifier]: Mod initialized. Configure settings in worldmodifier-common.toml");
+        LOGGER.info("[WorldModifier]: Mod initialized. Configure settings in worldmodifier-common.toml or in-game via Mods menu");
     }
 
     private void onConfigLoad(ModConfigEvent.Loading event) {

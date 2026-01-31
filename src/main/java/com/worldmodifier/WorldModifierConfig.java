@@ -13,56 +13,104 @@ import java.util.Set;
  * Configuration for World Modifier.
  *
  * Contract:
- * - whitelistedBiomes: List of biome resource locations (e.g., "minecraft:plains")
- * - enabled: Master toggle for the mod functionality
- * - Non-whitelisted biomes are replaced with a random biome from the whitelist
+ * - biomeList: List of biome resource locations (e.g., "minecraft:plains")
+ * - mode: Controls filtering behavior (whitelist, blacklist, or disabled)
+ * - preset: Predefined configurations (default, endless_ocean, or custom)
+ * - Non-allowed biomes are replaced with a fallback biome from the allowed set
  *
- * Invariant: If whitelist is empty and enabled=true, ALL biomes are allowed (no filtering).
+ * Invariant: If biome list is empty and mode is not disabled, ALL biomes are allowed (no filtering).
  */
 public class WorldModifierConfig {
+
+    // ==================== ENUMS ====================
+
+    public enum FilterMode {
+        DISABLED,
+        WHITELIST,
+        BLACKLIST
+    }
+
+    // ==================== DEFAULT CONSTANTS (Vanilla Minecraft) ====================
+
+    public static final int DEFAULT_SEA_LEVEL = 63;
+    public static final int DEFAULT_BEDROCK_LEVEL = -64;
+    public static final int DEFAULT_MAX_HEIGHT = 512;
+    public static final List<String> DEFAULT_BIOMES = List.of();
+
+    // ==================== CONFIG SPEC ====================
+
     public static final ForgeConfigSpec SPEC;
 
-    public static final ForgeConfigSpec.BooleanValue ENABLED;
-    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> WHITELISTED_BIOMES;
+    // Mode
+    public static final ForgeConfigSpec.EnumValue<FilterMode> MODE;
+
+    // Biome Settings
+    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> BIOME_LIST;
+
+    // World Settings
     public static final ForgeConfigSpec.IntValue SEA_LEVEL;
     public static final ForgeConfigSpec.IntValue BEDROCK_LEVEL;
     public static final ForgeConfigSpec.IntValue MAX_HEIGHT;
 
-    // Cached set for fast lookup - rebuilt when config reloads
-    private static Set<ResourceLocation> whitelistCache = Collections.emptySet();
-    private static List<ResourceLocation> whitelistList = Collections.emptyList();
+    // ==================== RUNTIME CACHE ====================
+
+    private static Set<ResourceLocation> biomeCache = Collections.emptySet();
+    private static List<ResourceLocation> biomeListCache = Collections.emptyList();
+
+    // ==================== CONFIG INITIALIZATION ====================
 
     static {
         ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
 
-        builder.comment("World Modifier Configuration");
-        builder.push("general");
+        // -------------------- Biome Filtering Section --------------------
+        builder.comment(
+                "===========================================",
+                "         WORLD MODIFIER CONFIGURATION      ",
+                "===========================================",
+                "",
+                "===========================================",
+                "            BIOME FILTERING                ",
+                "===========================================",
+                "",
+                "Control which biomes can generate in your world."
+        );
+        builder.push("biomes");
 
-        ENABLED = builder
-                .comment("Enable biome whitelist filtering. When false, world generates normally.")
-                .define("enabled", true);
-
-        WHITELISTED_BIOMES = builder
+        MODE = builder
                 .comment(
-                        "List of biomes that are allowed to generate.",
+                        "Filtering mode:",
+                        "",
+                        "  DISABLED  - No filtering, all biomes generate normally",
+                        "  WHITELIST - ONLY biomes in the list below can generate",
+                        "  BLACKLIST - All biomes EXCEPT those in the list can generate"
+                )
+                .defineEnum("mode", FilterMode.DISABLED);
+
+        BIOME_LIST = builder
+                .comment(
+                        "",
+                        "List of biomes for filtering (used by WHITELIST and BLACKLIST modes).",
                         "Use full resource locations like 'minecraft:plains' or 'modid:custom_biome'.",
-                        "If empty, all biomes are allowed (whitelist disabled).",
+                        "If empty, no filtering occurs (all biomes allowed).",
                         "",
                         "Common vanilla biomes:",
-                        "  minecraft:plains, minecraft:forest, minecraft:desert,",
-                        "  minecraft:taiga, minecraft:swamp, minecraft:jungle,",
-                        "  minecraft:snowy_plains, minecraft:ocean, minecraft:river,",
-                        "  minecraft:beach, minecraft:mountains (now minecraft:stony_peaks),",
-                        "  minecraft:savanna, minecraft:badlands, minecraft:dark_forest,",
-                        "  minecraft:birch_forest, minecraft:flower_forest,",
-                        "  minecraft:meadow, minecraft:grove, minecraft:snowy_slopes,",
-                        "  minecraft:frozen_peaks, minecraft:jagged_peaks,",
-                        "  minecraft:cherry_grove, minecraft:deep_dark",
+                        "  Plains:    minecraft:plains, minecraft:sunflower_plains",
+                        "  Forest:    minecraft:forest, minecraft:birch_forest, minecraft:dark_forest",
+                        "  Desert:    minecraft:desert",
+                        "  Taiga:     minecraft:taiga, minecraft:old_growth_pine_taiga",
+                        "  Jungle:    minecraft:jungle, minecraft:sparse_jungle, minecraft:bamboo_jungle",
+                        "  Swamp:     minecraft:swamp, minecraft:mangrove_swamp",
+                        "  Ocean:     minecraft:ocean, minecraft:deep_ocean, minecraft:warm_ocean",
+                        "  Mountain:  minecraft:meadow, minecraft:grove, minecraft:jagged_peaks",
+                        "  Savanna:   minecraft:savanna, minecraft:savanna_plateau",
+                        "  Badlands:  minecraft:badlands, minecraft:eroded_badlands",
+                        "  Snowy:     minecraft:snowy_plains, minecraft:ice_spikes",
+                        "  Special:   minecraft:cherry_grove, minecraft:deep_dark, minecraft:mushroom_fields",
                         "",
-                        "Example for a plains-only world: [\"minecraft:plains\", \"minecraft:river\", \"minecraft:ocean\"]"
+                        "Example - Plains only: [\"minecraft:plains\", \"minecraft:river\", \"minecraft:ocean\"]"
                 )
                 .defineListAllowEmpty(
-                        List.of("whitelistedBiomes"),
+                        List.of("list"),
                         () -> List.of(
                                 "minecraft:ocean",
                                 "minecraft:deep_ocean",
@@ -77,101 +125,164 @@ public class WorldModifierConfig {
                         obj -> obj instanceof String s && ResourceLocation.tryParse(s) != null
                 );
 
+        builder.pop();
+
+        // -------------------- World Generation Section --------------------
+        builder.comment(
+                "",
+                "===========================================",
+                "           WORLD GENERATION               ",
+                "===========================================",
+                "",
+                "Customize world height and water levels."
+        );
+        builder.push("world");
+
         SEA_LEVEL = builder
                 .comment(
-                        "Custom sea level for world generation.",
-                        "Default Minecraft sea level is 63.",
-                        "Higher values = more water, lower values = less water.",
-                        "Note: This affects where water generates, not terrain height.",
-                        "Range: 0-320"
+                        "Sea level (Y coordinate where water surface generates).",
+                        "",
+                        "  Vanilla default: 63",
+                        "  Higher values = more water coverage",
+                        "  Lower values = less water coverage",
+                        "",
+                        "Range: -1999 to 1999"
                 )
-                .defineInRange("seaLevel", 100, 0, 320);
+                .defineInRange("seaLevel", DEFAULT_SEA_LEVEL, -1999, 1999);
 
         BEDROCK_LEVEL = builder
                 .comment(
-                        "Y level where bedrock generates (bottom of the world).",
-                        "Default Minecraft bedrock level is -64.",
-                        "Higher values = shallower world, lower values = deeper world.",
-                        "Bedrock will generate at this Y level and below.",
-                        "Note: Value is rounded down to nearest multiple of 16 (Minecraft requirement).",
-                        "Range: -2048 to 320"
+                        "",
+                        "Bedrock level (bottom of the world).",
+                        "",
+                        "  Vanilla default: -64",
+                        "  Higher values = shallower world",
+                        "  Lower values = deeper world",
+                        "",
+                        "Note: Rounded down to nearest multiple of 16 (Minecraft requirement).",
+                        "Range: -2000 to 2000"
                 )
-                .defineInRange("bedrockLevel", -100, -2048, 320);
+                .defineInRange("bedrockLevel", DEFAULT_BEDROCK_LEVEL, -2000, 2000);
 
         MAX_HEIGHT = builder
                 .comment(
-                        "Maximum Y level (top of the world / build limit).",
-                        "Default Minecraft max height is 512.",
-                        "Lower values = lower sky limit, higher values = taller world.",
-                        "Note: Value is rounded up to nearest multiple of 16 (Minecraft requirement).",
-                        "Range: -64 to 2048"
+                        "",
+                        "Maximum build height (top of the world).",
+                        "",
+                        "  Vanilla default: 512",
+                        "  Higher values = taller build limit",
+                        "  Lower values = lower sky",
+                        "",
+                        "Note: Rounded up to nearest multiple of 16 (Minecraft requirement).",
+                        "Range: -2000 to 2000"
                 )
-                .defineInRange("maxHeight", 1000, -64, 2048);
+                .defineInRange("maxHeight", DEFAULT_MAX_HEIGHT, -2000, 2000);
 
         builder.pop();
+
         SPEC = builder.build();
     }
 
+    // ==================== CACHE MANAGEMENT ====================
+
     /**
-     * Rebuilds the whitelist cache from config values.
+     * Rebuilds the biome cache from config values.
      * Called after config load/reload.
      */
     public static void rebuildCache() {
+        List<String> biomeStrings = new ArrayList<>(BIOME_LIST.get());
+
         Set<ResourceLocation> newCache = new HashSet<>();
         List<ResourceLocation> newList = new ArrayList<>();
-        for (String biome : WHITELISTED_BIOMES.get()) {
+
+        for (String biome : biomeStrings) {
             ResourceLocation loc = ResourceLocation.tryParse(biome);
             if (loc != null) {
                 newCache.add(loc);
                 newList.add(loc);
             } else {
-                WorldModifier.LOGGER.warn("[WorldModifierConfig.rebuildCache]: Invalid biome resource location: {}", biome);
+                WorldModifier.LOGGER.warn("[WorldModifierConfig] Invalid biome: {}", biome);
             }
         }
-        whitelistCache = Collections.unmodifiableSet(newCache);
-        whitelistList = Collections.unmodifiableList(newList);
 
-        WorldModifier.LOGGER.info("[WorldModifierConfig.rebuildCache]: Whitelist contains {} biomes, sea level: {}, bedrock level: {}, max height: {}",
-                whitelistCache.size(), SEA_LEVEL.get(), BEDROCK_LEVEL.get(), MAX_HEIGHT.get());
+        biomeCache = Collections.unmodifiableSet(newCache);
+        biomeListCache = Collections.unmodifiableList(newList);
+
+        WorldModifier.LOGGER.info(
+                "[WorldModifierConfig] Loaded - Mode: {}, Biomes: {}, Sea: {}, Bedrock: {}, MaxHeight: {}",
+                getMode(), biomeCache.size(), getSeaLevel(), getBedrockLevel(), getMaxHeight()
+        );
+    }
+
+    // ==================== MODE & STATE QUERIES ====================
+
+    /**
+     * @return the current filter mode
+     */
+    public static FilterMode getMode() {
+        return MODE.get();
     }
 
     /**
-     * @return true if the mod filtering is enabled and whitelist is non-empty
+     * @return true if biome filtering is active
      */
     public static boolean isFilteringActive() {
-        return ENABLED.get() && !whitelistCache.isEmpty();
+        FilterMode mode = getMode();
+        if (mode == FilterMode.DISABLED) {
+            return false;
+        }
+        return !biomeCache.isEmpty();
     }
 
     /**
-     * @return unmodifiable set of whitelisted biome resource locations
+     * @return true if world modifications are active (any setting differs from vanilla defaults)
      */
-    public static Set<ResourceLocation> getWhitelistedBiomes() {
-        return whitelistCache;
+    public static boolean isWorldModificationActive() {
+        return getSeaLevel() != DEFAULT_SEA_LEVEL ||
+               getBedrockLevel() != DEFAULT_BEDROCK_LEVEL ||
+               getMaxHeight() != DEFAULT_MAX_HEIGHT;
+    }
+
+    // ==================== BIOME QUERIES ====================
+
+    /**
+     * @return unmodifiable set of biomes in the filter list
+     */
+    public static Set<ResourceLocation> getBiomeList() {
+        return biomeCache;
     }
 
     /**
      * @param biome the biome to check
-     * @return true if biome is in whitelist (or whitelist is empty/disabled)
+     * @return true if biome is allowed to generate based on current mode
      */
     public static boolean isBiomeAllowed(ResourceLocation biome) {
-        if (!isFilteringActive()) {
+        FilterMode mode = getMode();
+
+        if (mode == FilterMode.DISABLED || biomeCache.isEmpty()) {
             return true;
         }
-        return whitelistCache.contains(biome);
+
+        boolean inList = biomeCache.contains(biome);
+
+        if (mode == FilterMode.WHITELIST) {
+            return inList;
+        } else {
+            return !inList;
+        }
     }
 
     /**
-     * Gets the first biome from the whitelist as a fallback replacement.
-     * This is used when the original biome isn't in the whitelist.
-     *
-     * @return the first biome from the whitelist
+     * @return fallback biome when original is not allowed
      */
-    public static ResourceLocation getFirstWhitelistedBiome() {
-        if (whitelistList.isEmpty()) {
+    public static ResourceLocation getFallbackBiome() {
+        if (biomeListCache.isEmpty()) {
             return new ResourceLocation("minecraft", "plains");
         }
-        return whitelistList.get(0);
+        return biomeListCache.get(0);
     }
+
+    // ==================== WORLD SETTING QUERIES ====================
 
     /**
      * @return the configured sea level

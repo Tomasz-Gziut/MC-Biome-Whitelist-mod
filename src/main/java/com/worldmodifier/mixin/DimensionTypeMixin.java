@@ -19,6 +19,9 @@ public class DimensionTypeMixin {
      */
     @Inject(method = "minY", at = @At("HEAD"), cancellable = true)
     private void worldmodifier$overrideMinY(CallbackInfoReturnable<Integer> cir) {
+        if (!WorldModifierConfig.isWorldModificationActive()) {
+            return;
+        }
         int bedrockLevel = WorldModifierConfig.getBedrockLevel();
         // Round down to nearest 16 (Minecraft requires min_y to be divisible by 16)
         int newMinY = Math.floorDiv(bedrockLevel, 16) * 16;
@@ -31,6 +34,9 @@ public class DimensionTypeMixin {
      */
     @Inject(method = "height", at = @At("HEAD"), cancellable = true)
     private void worldmodifier$overrideHeight(CallbackInfoReturnable<Integer> cir) {
+        if (!WorldModifierConfig.isWorldModificationActive()) {
+            return;
+        }
         int bedrockLevel = WorldModifierConfig.getBedrockLevel();
         int maxHeight = WorldModifierConfig.getMaxHeight();
 

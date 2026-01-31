@@ -17,7 +17,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * Mixin to intercept biome selection in TheEndBiomeSource.
@@ -49,9 +48,9 @@ public class TheEndBiomeSourceMixin {
         }
 
         ResourceLocation biomeId = keyOpt.get().location();
-        Set<ResourceLocation> whitelist = WorldModifierConfig.getWhitelistedBiomes();
 
-        if (whitelist.contains(biomeId)) {
+        // Check if biome is allowed based on current mode (whitelist/blacklist)
+        if (WorldModifierConfig.isBiomeAllowed(biomeId)) {
             return;
         }
 
@@ -63,7 +62,7 @@ public class TheEndBiomeSourceMixin {
 
     @Unique
     private Holder<Biome> worldmodifier$getFallbackBiome() {
-        ResourceLocation fallbackBiome = WorldModifierConfig.getFirstWhitelistedBiome();
+        ResourceLocation fallbackBiome = WorldModifierConfig.getFallbackBiome();
 
         // Check cache first
         if (worldmodifier$biomeHolderCache.containsKey(fallbackBiome)) {

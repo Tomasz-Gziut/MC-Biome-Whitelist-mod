@@ -26,12 +26,12 @@ public class AquiferMixin {
     @Inject(method = "computeSubstance", at = @At("HEAD"), cancellable = true)
     private void worldmodifier$overrideFluidLevel(DensityFunction.FunctionContext context, double density,
                                                     CallbackInfoReturnable<BlockState> cir) {
-        if (!WorldModifierConfig.isFilteringActive()) {
+        int seaLevel = WorldModifierConfig.getSeaLevel();
+        if (seaLevel == WorldModifierConfig.DEFAULT_SEA_LEVEL) {
             return;
         }
 
         int y = context.blockY();
-        int seaLevel = WorldModifierConfig.getSeaLevel();
 
         // If we're below sea level and the density indicates this should be air/fluid (not solid)
         // density > 0 means solid block, density <= 0 means air or fluid
