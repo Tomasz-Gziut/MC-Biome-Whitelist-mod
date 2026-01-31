@@ -6,7 +6,8 @@
   "refmap": "biomewhitelist.refmap.json",
   "mixins": [
     "MultiNoiseBiomeSourceMixin",
-    "TheEndBiomeSourceMixin"
+    "TheEndBiomeSourceMixin",
+    "NoiseBasedChunkGeneratorMixin"
   ],
   "client": [],
   "injectors": {
